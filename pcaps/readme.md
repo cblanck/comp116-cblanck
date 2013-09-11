@@ -20,7 +20,7 @@ set1.pcap
     user: stokerj  
     pass: w00tfu!
 
-7\. **How many files were transferred from PC to server?**
+7\. **How many files were transferred from PC to server?**  
     3 files
 
 8\. **What are the names of the files transferred from PC to server?**  
