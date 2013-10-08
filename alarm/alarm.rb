@@ -20,7 +20,8 @@ stream.stream.each do |p|
             puts alert_str % [inc_num, "Xmas scan is detected", pkt.ip_saddr(), "TCP"]
             inc_num += 1
             next
-        elsif pkt.tcp_dst() == 80
+        elsif pkt.tcp_header.tcp_dst() == 80
+            puts "HTTP"
             protocol = "HTTP"
             if (payload =~ /4\d{3}(\s|-)?\d{4}(\s|-)?\d{4}(\s|-)?\d{4}/) or
             (payload =~ /5\d{3}(\s|-)?\d{4}(\s|-)?\d{4}(\s|-)?\d{4}/) or
@@ -28,7 +29,7 @@ stream.stream.each do |p|
             (payload =~ /3\d{3}(\s|-)?\d{6}(\s|-)?\d{5}/)
                 puts alert_str % [inc_num, "Credit card leaked in the clear", pkt.ip_saddr, protocol]
                 inc_num += 1
-            elsif (payload =~ /<script>alert\('XSS'\);<\/script>/im)
+            elsif (payload =~ /<script>.*(alert\(|window.location).*<\/script>/im)
                 puts alert_str % [inc_num, "XSS attack detected", pkt.ip_saddr, protocol]
                 inc_num += 1
             end
