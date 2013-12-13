@@ -1,0 +1,214 @@
+This is a dissection of a Skidrow crack for a game I would rather not name.
+
+I am going to present the uncracked pieces first, followed by the cracked version and give
+an explanation of what happened. The tool I used was the evaluation version of IDA pro for Windows.
+
+uncracked:
+
+loc_401000:		    ; CODE XREF: .securom:010BFCD2p
+					; .securom:010C3013p
+					; DATA XREF: ...
+        pop	esp
+		cmpsd
+		jecxz	short near ptr 400FB4h
+		fld	tbyte ptr [edx+7D707781h]
+		or	bh, [eax+5F4BB3A0h]
+etc...
+        dd 0BDE5CFC5h, 0E14AB87Bh
+dword_401070	dd 8912CA36h, 9F4D0DA3h, 0D980E004h, 0D3A6E0DCh, 0D7EA21D0h
+					; DATA XREF: sub_FB2E24+Fo
+		dd 5AEEEE92h, 36F09498h, 798B4C87h, 0E8D78292h,	37CA55A7h
+etc... (basically a whole bunch of dd AKA variable declarations)
+
+cracked:
+
+nullsub_1 proc near
+retn
+nullsub_1 endp
+
+explanation:
+
+This section seems to be some sort of initialization section for the .securom segment of the binary.
+It contains about 40 instructions followed by a number of dd commands for variable creation, followed by
+a single comparison and then a decrement of the edx register. The interesting part about the cracked
+version is that it is ENTIRELY absent, replaced simply by a return. There are still SecuROM segments
+in the cracked version, but the initialization was skipped in its entirety, probably because the crackers
+intelligently avoid touching any actual SecuROM sections in the run time of the cracked executable.
+
+
+uncracked:
+
+dword_401768	dd 6F116D8Fh, 0A2DAB2D4h, 0F6444B5Dh, 3CF924BCh, 79088C54h
+					; CODE XREF: .securom:010EF458p
+		dd 43CC0CA6h, 8B917B08h, 973B1DE0h, 8C912A20h, 0C9A71BB7h
+		dd 0C072BD96h, 78F8E74Eh, 0D7AB4B74h, 0D6779ECFh, 5B9562A9h
+		dd 4B9A8153h, 29DD1A6Ah, 63E96AAFh, 62308973h, 16337FE3h
+		dd 21F02B09h, 28179B76h, 6BC8F687h, 71C3C7EDh, 8632FE7Eh
+etc...
+
+cracked:
+
+not present at all
+
+explanation:
+
+There are several hundred lines of dd commands that exist in the uncracked version of the executable
+that are entirely absent from the cracked version. My best guess for this involves the encryption used by 
+SecuROM. Clearly it's not going to be useful to entirely examine the uncracked version of the executable,
+because it's currently encrypted. Thus only the SecuROM functionality will remain visible because otherwise,
+decryption of the main executable is impossible.
+
+
+uncracked:
+
+loc_4012D7:				; CODE XREF: .securom:010F0A8Fp
+		or	eax, 2F4C081Eh
+
+cracked:
+
+sub_4012D7	proc near		; CODE XREF: .securom:010F0A8Fp
+		jmp	sub_9F8669
+sub_4012D7	endp
+
+and the subroutine jumped to is....
+sub_9F8669	proc near		; CODE XREF: sub_4012D7j
+
+var_10		= dword	ptr -10h
+var_C		= dword	ptr -0Ch
+
+		pushf
+		mov	[esp+4+var_C], 0DE4B30D2h
+		nop
+		add	[esp+4+var_10],	22C426CAh
+		nop
+		add	[esp+4+var_C], 22C426B9h
+		popf
+		nop
+		jmp	[esp+var_C]
+sub_9F8669	endp
+
+explanation:
+
+This one is interesting. At two equivalent locations in the assembly, the SecuROM version does an or
+comparison and the cracked version does a jump to a location in the last 10% of the assembly. Not only that
+but the subroutine that is jumped to includes several "nop" commands that essentially do nothing (nop
+stands for no operation). I realized this was significant when I decided to count the number of "nop"s used
+in each executable and found it to be incredibly different. 167 "nop"s in the uncracked executable and
+26139 "nop"s in the cracked executable. Now, while this is far too many to actually look at each one, it
+gives insight into how the executable may have been modified with "nop"s to avoid operations that used
+SecuROM subroutines or anything that had to do with CD verification at all.
+
+
+uncracked:
+
+asc_66FD88	db '.\Player\NXBhv_PlayerCamera.cpp',0 ; DATA XREF: .securom:010D86D6o
+		db '"AssertFault: " "pPlayer->IsKinfOf(NXBhv_Player::UCID)!=0"',0
+		align 4
+
+cracked:
+
+asc_66FD88	db '.\Player\NXBhv_PlayerCamera.cpp',0 ; DATA XREF: .securom:010D86D6o
+asc_66FDA8	db '"AssertFault: " "pPlayer->IsKinfOf(NXBhv_Player::UCID)!=0"',0
+					; DATA XREF: .securom:010D86F6o
+		align 4
+
+explanation:
+
+I included this one partially for the humor value and partially because it helps prove my assumption about
+how the SecuROM code is obfuscated/encrypted. First of all, "IsKinfOf" is clearly some sort of typo, probably
+of "IsKindOf". I'm not 100% sure why this is actually sitting in the dumped executable, but doing a count of
+how many appearances this particular typo makes is revealing. In the uncracked executable, the "IsKinfOf" typo
+occurs 3 times, whereas it occurs 21 times in the cracked executable. My intuition in this situation tells me
+that this is related to the encryption used in the base executable that is unencrypted in the cracked version.
+
+
+uncracked:
+
+loc_10FC812:				; CODE XREF: .securom:010FC809j
+		mov	edx, ds:dword_7C7B08
+		imul	eax, 44h
+		push	dword ptr [edx+54h]
+		push	ecx
+		push	eax
+		pushf
+		mov	eax, 23CBD0ADh
+		push	esp
+		push	offset byte_109698B
+		xor	eax, 2355223Dh
+		call	eax
+		popf
+		xchg	eax, [esp]
+		push	ecx
+		push	eax
+		call	sub_40D220
+
+cracked:
+
+loc_10FC812:				; CODE XREF: .securom:010FC809j
+		mov	edx, ds:dword_7C7B08
+		imul	eax, 44h
+		push	dword ptr [edx+54h]
+		push	ecx
+		push	eax
+		pushf
+		mov	eax, offset unk_6524F0
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		popf
+		xchg	eax, [esp]
+		push	ecx
+		push	eax
+		call	sub_40D220
+etc...
+
+explanation:
+
+Based on the way that these two sections line up, the nop'd section of this portion of assembly is this:
+		mov	eax, 23CBD0ADh
+		push	esp
+		push	offset byte_109698B
+		xor	eax, 2355223Dh
+		call	eax
+
+Also note that the value moved into eax in the cracked version is offset unk_6524F0 (likely a label given 
+by IDA) which leads to the following section of assembly:
+
+unk_6524F0	db    0			; DATA XREF: .securom:010FC821o
+
+Of interest is that this section is surrounded by stuff like this:
+
+a_Nxbhv_clot_15	db '.\NXBhv_ClothFX.cpp',0 ; DATA XREF: .securom:010FC7F0o
+...
+aAssertfaultPlP	db '"AssertFault: " "pL->pObject->Type==TGS_OBJTYPE_BATMAXMESH"',0
+
+It seems that something at this offset (unk_6524F0) was REMOVED during the cracking of this game. Moreover,
+the nop'd out portion of assembly makes a function call to some value equal to the xor of eax and 235523D
+which is a hexadecimal value. eax at this point is 23CBD0AD, so the xor of the two is 21FE8290. Unfortunately,
+IDA is unable to follow this call, likely due to the fact that it references a register, and IDA isn't smart
+enough to know the value of the register at that point. Also unfortunately, I can't find where 21FE8290 points
+to in the assembly, even with searching. It just doesn't seem to exist. Regardless, I think it's a fair assumption
+to say that it was important enough to be removed by the crackers, and because of its location in the .securom
+segment of the assembly, it's likely that it was a subroutine call that had to do with SecuROM. This is
+definitely one of the more obvious instances of actual cracking occurring, because the two section are identical
+except for the nop'd out opcodes.
+
+I would continue the dissection, but the two assembly files are roughly 5 million lines long. Granted, a lot of that
+seems to variable declarations and empty space, but it's just too hard to understand the entirety of something like this.
+I will include a pared down version of each assembly dump for your perusal. I removed all of the raw data
+which was likely just string literals and static variables, and tried to only include actual assembly.
+The cracked file ended up being much harder to pare down to size, as a lot more of it is useful information.
+I have also removed all references to the game cracked. The abridged cracked assembly dump is 1.3 million lines of assembly,
+and the uncracked assembly dump is around 424,000 lines. Enjoy! 
+
+(I encourage you to ctrl+f to find occurrences of "IsKinfOf" in the cracked executable assembly dump)
